@@ -13,6 +13,9 @@
 #include <QTimer>
 #include <QMessageBox>
 #include <QComboBox>
+#include <QUndoStack>
+#include <QUndoView>
+#include <QGroupBox>
 
 void filterTasks(QListWidget* listWidget, const QString& keyword) {
     for (int i = 0; i < listWidget->count(); ++i) {
@@ -53,6 +56,7 @@ int main(int argc, char *argv[]) {
     layout->addWidget(todoList);
 
     QLineEdit *taskInput = new QLineEdit(centralWidget);
+    taskInput->setPlaceholderText("Enter task...");
     layout->addWidget(taskInput);
 
     QPushButton *addButton = new QPushButton("Add Task", centralWidget);
@@ -99,11 +103,16 @@ int main(int argc, char *argv[]) {
 
     loadTasksFromFile(todoList);
 
+    QUndoStack undoStack;
+
     QObject::connect(addButton, &QPushButton::clicked, [&]() {
         QString task = taskInput->text().trimmed();
         if (!task.isEmpty()) {
+            QUndoCommand *addCommand = new QUndoCommand("Add Task");
             todoList->addItem(task);
             taskInput->clear();
+            addCommand->setText(task);
+            undoStack.push(addCommand);
 
             QFile file("tasks.txt");
             if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
@@ -179,6 +188,11 @@ int main(int argc, char *argv[]) {
             out << updatedLines.join("\n");
         }
     });
+
+    QUndoView *undoView = new QUndoView(&undoStack);
+    undoView->setWindowTitle("Undo/Redo History");
+    undoView->setParent(centralWidget);
+    layout->addWidget(undoView);
 
     mainWindow.setCentralWidget(centralWidget);
     mainWindow.setWindowTitle("To-Do List Manager");
