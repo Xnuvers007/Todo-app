@@ -12,6 +12,18 @@
 #include <QTime>
 #include <QTimer>
 #include <QMessageBox>
+#include <QComboBox>
+
+void filterTasks(QListWidget* listWidget, const QString& keyword) {
+    for (int i = 0; i < listWidget->count(); ++i) {
+        QListWidgetItem* item = listWidget->item(i);
+        if (item->text().contains(keyword, Qt::CaseInsensitive)) {
+            item->setHidden(false);
+        } else {
+            item->setHidden(true);
+        }
+    }
+}
 
 void loadTasksFromFile(QListWidget* listWidget) {
     QFile file("tasks.txt");
@@ -52,7 +64,6 @@ int main(int argc, char *argv[]) {
     QCheckBox *themeToggle = new QCheckBox("Dark Theme", centralWidget);
     layout->addWidget(themeToggle);
 
-    // Apply a dark theme using stylesheets
     QPalette darkPalette;
     darkPalette.setColor(QPalette::Window, QColor(53, 53, 53));
     darkPalette.setColor(QPalette::WindowText, Qt::white);
@@ -68,7 +79,7 @@ int main(int argc, char *argv[]) {
     darkPalette.setColor(QPalette::Highlight, QColor(42, 130, 218));
     darkPalette.setColor(QPalette::HighlightedText, Qt::black);
 
-    QPalette lightPalette = app.palette(); // Store the default (light) palette
+    QPalette lightPalette = app.palette();
 
     QObject::connect(themeToggle, &QCheckBox::toggled, [&](bool checked) {
         if (checked) {
@@ -77,6 +88,7 @@ int main(int argc, char *argv[]) {
             app.setPalette(lightPalette);
         }
     });
+
     QTimer timer;
     QObject::connect(&timer, &QTimer::timeout, [&]() {
         QTime currentTime = QTime::currentTime();
@@ -103,43 +115,76 @@ int main(int argc, char *argv[]) {
         }
     });
 
-    QObject::connect(removeButton, &QPushButton::clicked, [&]() {
-    QList<QListWidgetItem*> selectedItems = todoList->selectedItems();
+    QLabel *priorityLabel = new QLabel("Task Priority", centralWidget);
+    QComboBox *priorityComboBox = new QComboBox(centralWidget);
+    priorityComboBox->addItem("Low");
+    priorityComboBox->addItem("Medium");
+    priorityComboBox->addItem("High");
+    layout->addWidget(priorityLabel);
+    layout->addWidget(priorityComboBox);
 
-    QFile file("tasks.txt");
-    if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
-        QTextStream in(&file);
-        QString fileContents = in.readAll();
-        QStringList lines = fileContents.split("\n");
+    QLineEdit *searchInput = new QLineEdit(centralWidget);
+    searchInput->setPlaceholderText("Search tasks");
+    layout->addWidget(searchInput);
 
-        file.resize(0);
+    QObject::connect(searchInput, &QLineEdit::textChanged, [&]() {
+        QString keyword = searchInput->text();
+        filterTasks(todoList, keyword);
+    });
 
-        QStringList updatedLines;
-
+    QObject::connect(priorityComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [&](int index) {
+        QList<QListWidgetItem*> selectedItems = todoList->selectedItems();
         for (QListWidgetItem* item : selectedItems) {
-            QString task = item->text();
-            lines.removeAll(task);
-            delete item;
-        }
-
-        QTextStream out(&file);
-        for (const QString& line : lines) {
-            if (!line.isEmpty()) {
-                updatedLines << line;
+            switch (index) {
+                case 0:
+                    item->setForeground(QBrush(Qt::green));
+                    break;
+                case 1:
+                    item->setForeground(QBrush(Qt::yellow));
+                    break;
+                case 2:
+                    item->setForeground(QBrush(Qt::red));
+                    break;
+                default:
+                    item->setForeground(QBrush(Qt::black));
             }
         }
-        out << updatedLines.join("\n");
-    }
-});
+    });
 
+    QObject::connect(removeButton, &QPushButton::clicked, [&]() {
+        QList<QListWidgetItem*> selectedItems = todoList->selectedItems();
+
+        QFile file("tasks.txt");
+        if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+            QTextStream in(&file);
+            QString fileContents = in.readAll();
+            QStringList lines = fileContents.split("\n");
+
+            file.resize(0);
+
+            QStringList updatedLines;
+
+            for (QListWidgetItem* item : selectedItems) {
+                QString task = item->text();
+                lines.removeAll(task);
+                delete item;
+            }
+
+            QTextStream out(&file);
+            for (const QString& line : lines) {
+                if (!line.isEmpty()) {
+                    updatedLines << line;
+                }
+            }
+            out << updatedLines.join("\n");
+        }
+    });
 
     mainWindow.setCentralWidget(centralWidget);
     mainWindow.setWindowTitle("To-Do List Manager");
     mainWindow.show();
-    
-    // Show an alert when the application is ready
-    QMessageBox::information(&mainWindow, "Welcome", "To-Do List Manager is ready to use!");
 
+    QMessageBox::information(&mainWindow, "Welcome", "To-Do List Manager is ready to use!");
 
     return app.exec();
 }
