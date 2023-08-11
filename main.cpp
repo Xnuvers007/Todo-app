@@ -17,6 +17,15 @@
 #include <QUndoView>
 #include <QGroupBox>
 
+class TaskItem : public QListWidgetItem {
+public:
+    TaskItem(const QString &text, const QString &priority = "Low")
+        : QListWidgetItem(text), taskPriority(priority), completed(false) {}
+
+    QString taskPriority;
+    bool completed;
+};
+
 void filterTasks(QListWidget* listWidget, const QString& keyword) {
     for (int i = 0; i < listWidget->count(); ++i) {
         QListWidgetItem* item = listWidget->item(i);
@@ -35,7 +44,7 @@ void loadTasksFromFile(QListWidget* listWidget) {
         while (!in.atEnd()) {
             QString task = in.readLine();
             if (!task.isEmpty()) {
-                listWidget->addItem(task);
+                listWidget->addItem(new TaskItem(task));
             }
         }
     }
@@ -109,7 +118,7 @@ int main(int argc, char *argv[]) {
         QString task = taskInput->text().trimmed();
         if (!task.isEmpty()) {
             QUndoCommand *addCommand = new QUndoCommand("Add Task");
-            todoList->addItem(task);
+            todoList->addItem(new TaskItem(task));
             taskInput->clear();
             addCommand->setText(task);
             undoStack.push(addCommand);
@@ -194,8 +203,25 @@ int main(int argc, char *argv[]) {
     undoView->setParent(centralWidget);
     layout->addWidget(undoView);
 
+    QLabel *taskCountLabel = new QLabel("Task Count:", centralWidget);
+    layout->addWidget(taskCountLabel);
+
+    QLabel *totalTasksLabel = new QLabel("Total Tasks: 0", centralWidget);
+    layout->addWidget(totalTasksLabel);
+
+    QObject::connect(&undoStack, &QUndoStack::indexChanged, [&]() {
+        totalTasksLabel->setText("Total Tasks: " + QString::number(todoList->count()));
+        int completedTasks = 0;
+        for (int i = 0; i < todoList->count(); ++i) {
+            TaskItem* taskItem = dynamic_cast<TaskItem*>(todoList->item(i));
+            if (taskItem && taskItem->completed) {
+                ++completedTasks;
+            }
+        }
+    });
+
     mainWindow.setCentralWidget(centralWidget);
-    mainWindow.setWindowTitle("To-Do List Manager");
+    mainWindow.setWindowTitle("To-Do List Manager by Xnuvers007");
     mainWindow.show();
 
     QMessageBox::information(&mainWindow, "Welcome", "To-Do List Manager is ready to use!");
