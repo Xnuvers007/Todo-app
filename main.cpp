@@ -104,28 +104,34 @@ int main(int argc, char *argv[]) {
     });
 
     QObject::connect(removeButton, &QPushButton::clicked, [&]() {
-        QList<QListWidgetItem*> selectedItems = todoList->selectedItems();
+    QList<QListWidgetItem*> selectedItems = todoList->selectedItems();
 
-        QFile file("tasks.txt");
-        if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
-            QTextStream in(&file);
-            QString fileContents = in.readAll();
-            QStringList lines = fileContents.split("\n");
+    QFile file("tasks.txt");
+    if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+        QTextStream in(&file);
+        QString fileContents = in.readAll();
+        QStringList lines = fileContents.split("\n");
 
-            file.resize(0);
+        file.resize(0);
 
-            for (QListWidgetItem* item : selectedItems) {
-                QString task = item->text();
-                lines.removeAll(task);
-                delete item;
-            }
+        QStringList updatedLines;
 
-            QTextStream out(&file);
-            for (const QString& line : lines) {
-                out << line << endl;
+        for (QListWidgetItem* item : selectedItems) {
+            QString task = item->text();
+            lines.removeAll(task);
+            delete item;
+        }
+
+        QTextStream out(&file);
+        for (const QString& line : lines) {
+            if (!line.isEmpty()) {
+                updatedLines << line;
             }
         }
-    });
+        out << updatedLines.join("\n");
+    }
+});
+
 
     mainWindow.setCentralWidget(centralWidget);
     mainWindow.setWindowTitle("To-Do List Manager");
