@@ -13,6 +13,19 @@
 #include <QTimer>
 #include <QMessageBox>
 
+void loadTasksFromFile(QListWidget* listWidget) {
+    QFile file("tasks.txt");
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&file);
+        while (!in.atEnd()) {
+            QString task = in.readLine();
+            if (!task.isEmpty()) {
+                listWidget->addItem(task);
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
@@ -64,52 +77,63 @@ int main(int argc, char *argv[]) {
             app.setPalette(lightPalette);
         }
     });
-
     QTimer timer;
     QObject::connect(&timer, &QTimer::timeout, [&]() {
         QTime currentTime = QTime::currentTime();
         QString timeText = currentTime.toString("hh:mm:ss");
         timeLabel->setText(timeText);
     });
-    timer.start(1000); // Update every second
+    timer.start(1000);
+
+    loadTasksFromFile(todoList);
 
     QObject::connect(addButton, &QPushButton::clicked, [&]() {
-    QString task = taskInput->text();
-    if (!task.isEmpty()) {
-        todoList->addItem(task);
-        taskInput->clear();
+        QString task = taskInput->text().trimmed();
+        if (!task.isEmpty()) {
+            todoList->addItem(task);
+            taskInput->clear();
 
-        // Save the task to a file
-        QFile file("tasks.txt");
-        if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-            QTextStream out(&file);
-            out << task << endl;
+            QFile file("tasks.txt");
+            if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << task << endl;
+            }
+
+            QMessageBox::information(&mainWindow, "Task Added", "Task has been added successfully.");
         }
-
-        // Display an alert pop-up dialog
-        QMessageBox::information(&mainWindow, "Task Added", "Task has been added successfully.");
-    }
-});
-
-
-    QObject::connect(removeButton, &QPushButton::clicked, [&]() {
-        qDeleteAll(todoList->selectedItems());
     });
 
-    // Load existing tasks from file
-    QFile file("tasks.txt");
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        while (!in.atEnd()) {
-            QString task = in.readLine();
-            todoList->addItem(task);
-        }
-    }
+    QObject::connect(removeButton, &QPushButton::clicked, [&]() {
+        QList<QListWidgetItem*> selectedItems = todoList->selectedItems();
 
+        QFile file("tasks.txt");
+        if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+            QTextStream in(&file);
+            QString fileContents = in.readAll();
+            QStringList lines = fileContents.split("\n");
+
+            file.resize(0);
+
+            for (QListWidgetItem* item : selectedItems) {
+                QString task = item->text();
+                lines.removeAll(task);
+                delete item;
+            }
+
+            QTextStream out(&file);
+            for (const QString& line : lines) {
+                out << line << endl;
+            }
+        }
+    });
 
     mainWindow.setCentralWidget(centralWidget);
     mainWindow.setWindowTitle("To-Do List Manager");
     mainWindow.show();
+    
+    // Show an alert when the application is ready
+    QMessageBox::information(&mainWindow, "Welcome", "To-Do List Manager is ready to use!");
+
 
     return app.exec();
 }
