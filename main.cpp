@@ -48,16 +48,16 @@ void loadTasksFromFile(QListWidget* listWidget) {
                 listWidget->addItem(new TaskItem(task));
             }
         }
+        file.close();
     }
 }
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    QSplashScreen *splash = new QSplashScreen;
-    splash->setPixmap(QPixmap("./loading.gif"));
-    splash->show();
-    QTimer::singleShot(10000, splash, &QSplashScreen::close); // Menutup splash screen setelah 10 detik
-
+    
+    // Menampilkan splash screen
+    QSplashScreen splash(QPixmap("./loading.gif"));
+    splash.show();
 
     QMainWindow mainWindow;
     QWidget *centralWidget = new QWidget(&mainWindow);
@@ -119,8 +119,40 @@ int main(int argc, char *argv[]) {
     loadTasksFromFile(todoList);
 
     QUndoStack undoStack;
-
+    
     QObject::connect(addButton, &QPushButton::clicked, [&]() {
+        QString task = taskInput->text().trimmed();
+        // Validasi input sebelum menggunakan data
+        if (task.isEmpty()) {
+            QMessageBox::critical(&mainWindow, "Error", "Task cannot be empty!");
+            return;
+        }
+        if (!task.isEmpty()) {
+            QUndoCommand *addCommand = new QUndoCommand("Add Task");
+            TaskItem* newTask = new TaskItem(task);
+            todoList->addItem(newTask);
+            taskInput->clear();
+            addCommand->setText(task);
+            undoStack.push(addCommand);
+
+            QFile file("tasks.txt");
+            if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << task << endl;
+                file.close(); // Close the file after writing
+            } else {
+                QMessageBox::critical(&mainWindow, "Error", "Failed to save the task!");
+                delete newTask; // Clean up the allocated memory
+            }
+
+            QMessageBox::information(&mainWindow, "Task Added", "Task has been added successfully.");
+            if (!file.isOpen()) {
+            delete newTask;
+        }
+        }
+    });
+
+    /*QObject::connect(addButton, &QPushButton::clicked, [&]() {
         QString task = taskInput->text().trimmed();
         if (!task.isEmpty()) {
             QUndoCommand *addCommand = new QUndoCommand("Add Task");
@@ -138,6 +170,7 @@ int main(int argc, char *argv[]) {
             QMessageBox::information(&mainWindow, "Task Added", "Task has been added successfully.");
         }
     });
+    */
 
     QLabel *priorityLabel = new QLabel("Task Priority", centralWidget);
     QComboBox *priorityComboBox = new QComboBox(centralWidget);
@@ -175,7 +208,7 @@ int main(int argc, char *argv[]) {
         }
     });
 
-    QObject::connect(removeButton, &QPushButton::clicked, [&]() {
+    /*QObject::connect(removeButton, &QPushButton::clicked, [&]() {
         QList<QListWidgetItem*> selectedItems = todoList->selectedItems();
 
         QFile file("tasks.txt");
@@ -203,6 +236,41 @@ int main(int argc, char *argv[]) {
             out << updatedLines.join("\n");
         }
     });
+    */
+    QObject::connect(removeButton, &QPushButton::clicked, [&]() {
+        QList<QListWidgetItem*> selectedItems = todoList->selectedItems();
+        
+        if (selectedItems.isEmpty()) {
+        QMessageBox::critical(&mainWindow, "Error", "Remove selected task: Nothing selected!");
+        return;
+    }
+
+        QFile file("tasks.txt");
+        if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+            QTextStream in(&file);
+            QString fileContents = in.readAll();
+            QStringList lines = fileContents.split("\n");
+
+            file.resize(0);
+
+            QStringList updatedLines;
+
+            for (QListWidgetItem* item : selectedItems) {
+                QString task = item->text();
+                lines.removeAll(task);
+                delete item;
+            }
+
+            QTextStream out(&file);
+            for (const QString& line : lines) {
+                if (!line.isEmpty()) {
+                    updatedLines << line;
+                }
+            }
+            out << updatedLines.join("\n");
+            file.close(); // Close the file after updating
+        }
+    });
 
     QUndoView *undoView = new QUndoView(&undoStack);
     undoView->setWindowTitle("Undo/Redo History");
@@ -228,11 +296,14 @@ int main(int argc, char *argv[]) {
 
     mainWindow.setCentralWidget(centralWidget);
     mainWindow.setWindowTitle("To-Do List Manager by Xnuvers007");
-    mainWindow.show();
+    
+    // Menampilkan splash screen selama 5 detik
+    QTimer::singleShot(5000, &splash, &QSplashScreen::close);
+    
+    // Menampilkan jendela utama setelah splash screen ditutup
+    QTimer::singleShot(5000, &mainWindow, &QMainWindow::show);
 
     QMessageBox::information(&mainWindow, "Welcome", "To-Do List Manager is ready to use!");
-    
-    QTimer::singleShot(10000, &mainWindow, &QMainWindow::show); // Menampilkan jendela utama setelah 10 detik
 
     return app.exec();
 }
