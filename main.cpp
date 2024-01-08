@@ -16,6 +16,7 @@
 #include <QUndoStack>
 #include <QUndoView>
 #include <QGroupBox>
+#include <QSplashScreen>
 
 class TaskItem : public QListWidgetItem {
 public:
@@ -52,6 +53,11 @@ void loadTasksFromFile(QListWidget* listWidget) {
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
+    QSplashScreen *splash = new QSplashScreen;
+    splash->setPixmap(QPixmap("./loading.gif"));
+    splash->show();
+    QTimer::singleShot(10000, splash, &QSplashScreen::close); // Menutup splash screen setelah 10 detik
+
 
     QMainWindow mainWindow;
     QWidget *centralWidget = new QWidget(&mainWindow);
@@ -225,6 +231,8 @@ int main(int argc, char *argv[]) {
     mainWindow.show();
 
     QMessageBox::information(&mainWindow, "Welcome", "To-Do List Manager is ready to use!");
+    
+    QTimer::singleShot(10000, &mainWindow, &QMainWindow::show); // Menampilkan jendela utama setelah 10 detik
 
     return app.exec();
 }
